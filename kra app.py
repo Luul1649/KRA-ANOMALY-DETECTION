@@ -23,7 +23,7 @@ tab1, tab2 = st.tabs(["🔍 Auditor Risk Console", "📖 Data Framework Details"
 @st.cache_data
 def load_and_train_kra():
     # Load dataset subset safely
-    df = pd.read_csv('PS_20174392719_1491204439457_log.csv', nrows=200000)
+    df = pd.read_csv('paysim_small.csv', nrows=200000)
     
     # Process types
     df = pd.get_dummies(df, columns=['type'], drop_first=True)
