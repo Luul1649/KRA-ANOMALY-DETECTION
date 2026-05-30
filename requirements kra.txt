@@ -3,5 +3,5 @@ Numpy
 matplotlib 
 seaborn 
 scikit-learn
-sklearn.emsemble
+sklearn.ensemble
 random forest classifier
