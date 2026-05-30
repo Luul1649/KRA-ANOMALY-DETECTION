@@ -1,4 +1,5 @@
 import streamlit as st
+pip install sklearn
 import pandas as pd
 import numpy as np
 import sklearn.ensemble
