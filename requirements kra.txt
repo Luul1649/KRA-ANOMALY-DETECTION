@@ -1,7 +1,7 @@
+streamlit
 pandas
-Numpy
-matplotlib 
-seaborn 
+numpy
 scikit-learn
-sklearn.ensemble
-RandomForestClassifier
+xgboost
+matplotlib
+seaborn
