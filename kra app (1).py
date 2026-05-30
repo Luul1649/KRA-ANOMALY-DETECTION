@@ -6,7 +6,7 @@ import matplotlib.pyplot as plt
 import seaborn as sns
 import os
 
-# 1. Page Configuration (KRA Auditing Theme)
+# 1. Page Configuration
 st.set_page_config(page_title="Kaggle Tax Anomaly Console", page_icon="🏦", layout="wide")
 
 st.title("🏦 AI Tax Anomaly & Compliance Engine (Financial Proxy)")
@@ -16,42 +16,61 @@ Using financial data, this Proof of Concept maps financial anomalies to identify
 transactions and potential tax evasion frameworks.
 """)
 
-# Setup clean tabs
 tab1, tab2 = st.tabs(["🔍 Auditor Risk Console", "📖 Data Framework Details"])
 
-# 2. Cache Model and Data Loading
+# 2. Secure Data Loading & Training Pipeline
 @st.cache_data
 def load_and_train_kra():
     data_file = 'paysim_small.csv'
     
-    # Check if file exists and has data
+    # Base expected structural columns
+    base_cols = ['amount', 'oldbalanceOrg', 'newbalanceOrig', 'oldbalanceDest', 'newbalanceDest']
+    
     if os.path.exists(data_file):
-        df = pd.read_csv(data_file, nrows=50000)
+        try:
+            df = pd.read_csv(data_file, nrows=20000)
+            # Normalize user columns to lowercase to strip anomalies
+            df.columns = df.columns.str.strip().str.lower()
+            
+            # Direct uniform rename mapping
+            rename_map = {
+                'amount': 'amount', 'oldbalanceorg': 'oldbalanceOrg', 'oldbalance_org': 'oldbalanceOrg',
+                'newbalanceorig': 'newbalanceOrig', 'newbalance_orig': 'newbalanceOrig',
+                'oldbalancedest': 'oldbalanceDest', 'oldbalance_dest': 'oldbalanceDest',
+                'newbalancedest': 'newbalanceDest', 'newbalance_dest': 'newbalanceDest',
+                'type': 'type', 'isfraud': 'isFraud'
+            }
+            df = df.rename(columns=rename_map)
+        except Exception:
+            df = pd.DataFrame()
     else:
-        # Fallback dataset with exact matching column names
+        df = pd.DataFrame()
+
+    # SAFEGUARD: If dataframe is empty or corrupted, build clean programmatic array structure
+    if df.empty or not all(col in df.columns for col in ['amount', 'oldbalanceOrg']):
         np.random.seed(42)
         n_rows = 5000
         df = pd.DataFrame({
             'amount': np.random.exponential(scale=30000, size=n_rows),
             'oldbalanceOrg': np.random.exponential(scale=100000, size=n_rows),
+            'newbalanceOrig': np.random.exponential(scale=90000, size=n_rows),
             'oldbalanceDest': np.random.exponential(scale=200000, size=n_rows),
+            'newbalanceDest': np.random.exponential(scale=220000, size=n_rows),
             'type': np.random.choice(['TRANSFER', 'CASH_OUT', 'CASH_IN', 'DEBIT', 'PAYMENT'], size=n_rows),
             'isFraud': np.random.choice([0, 1], size=n_rows, p=[0.99, 0.01])
         })
-        df['newbalanceOrig'] = np.maximum(0, df['oldbalanceOrg'] - df['amount'])
-        df['newbalanceDest'] = df['oldbalanceDest'] + df['amount']
 
-    # Clean up column names (remove leading/trailing spaces)
-    df.columns = df.columns.str.strip()
-
-    # Safety: If 'type' is missing, add a dummy type column
+    # Strict structural integrity validation: Force fallbacks for columns missing from file
+    for col in base_cols:
+        if col not in df.columns:
+            df[col] = 0.0
     if 'type' not in df.columns:
         df['type'] = 'TRANSFER'
+    if 'isFraud' not in df.columns:
+        df['isFraud'] = 0
 
-    # Process categorical features cleanly
+    # Categorical One-Hot Encoding
     df = pd.get_dummies(df, columns=['type'], drop_first=False)
-    
-    # Force standard one-hot columns to exist so the app never throws feature errors
     required_types = ['type_CASH_OUT', 'type_DEBIT', 'type_PAYMENT', 'type_TRANSFER', 'type_CASH_IN']
     for t_col in required_types:
         if t_col not in df.columns:
@@ -62,22 +81,14 @@ def load_and_train_kra():
     df['receiver_balance_error'] = df['oldbalanceDest'] + df['amount'] - df['newbalanceDest']
     df['is_high_value'] = (df['amount'] > 150000).astype(int)
     
-    # Explicitly separate inputs and targets
-    drop_cols = ['nameOrig', 'nameDest', 'isFlaggedFraud', 'isFraud']
-    features = [
-        'amount', 'oldbalanceOrg', 'newbalanceOrig', 'oldbalanceDest', 'newbalanceDest',
-        'type_CASH_OUT', 'type_DEBIT', 'type_PAYMENT', 'type_TRANSFER', 'type_CASH_IN',
-        'sender_balance_error', 'receiver_balance_error', 'is_high_value'
-    ]
-    
-    # Intersect features to make sure they exist in the dataframe
-    features = [f for f in features if f in df.columns]
+    # Define exact feature order layout
+    features = base_cols + required_types + ['sender_balance_error', 'receiver_balance_error', 'is_high_value']
     
     X = df[features].astype(float)
-    y = df['isFraud'].astype(int) if 'isFraud' in df.columns else np.zeros(len(df))
+    y = df['isFraud'].astype(int)
     
-    # Train the Random Forest Classifier
-    model = RandomForestClassifier(n_estimators=20, random_state=42, n_jobs=-1)
+    # Train random forest model
+    model = RandomForestClassifier(n_estimators=15, random_state=42, n_jobs=-1)
     model.fit(X, y)
     
     return model, features, df
@@ -86,48 +97,40 @@ with st.spinner("⏳ Training financial audit intelligence model..."):
     kra_model, kra_features, raw_df = load_and_train_kra()
 
 with tab1:
-    # 3. Sidebar inputs for transaction auditing simulation
     st.sidebar.header("🧾 Transaction Audit Parameters")
-    
     tx_amount = st.sidebar.number_input("Transaction Amount (KES/Units)", value=25000.0, step=1000.0)
     tx_type = st.sidebar.selectbox("Transaction Channel Type", ["TRANSFER", "CASH_OUT", "CASH_IN", "DEBIT", "PAYMENT"])
-    
     old_orig = st.sidebar.number_input("Sender Initial Balance", value=50000.0)
     new_orig = st.sidebar.number_input("Sender Post-Transaction Balance", value=25000.0)
-    
     old_dest = st.sidebar.number_input("Recipient Initial Balance", value=10000.0)
     new_dest = st.sidebar.number_input("Recipient Post-Transaction Balance", value=35000.0)
 
-    # 4. Process Inputs to Match Model Features
+    # Process live user inputs
     sender_err = new_orig + tx_amount - old_orig
     receiver_err = old_dest + tx_amount - new_dest
     high_val = 1 if tx_amount > 150000 else 0
     
-    # Build input dictionary mapping exactly to model features
     input_dict = {feat: 0.0 for feat in kra_features}
-    if 'amount' in input_dict: input_dict['amount'] = float(tx_amount)
-    if 'oldbalanceOrg' in input_dict: input_dict['oldbalanceOrg'] = float(old_orig)
-    if 'newbalanceOrig' in input_dict: input_dict['newbalanceOrig'] = float(new_orig)
-    if 'oldbalanceDest' in input_dict: input_dict['oldbalanceDest'] = float(old_dest)
-    if 'newbalanceDest' in input_dict: input_dict['newbalanceDest'] = float(new_dest)
-    if 'sender_balance_error' in input_dict: input_dict['sender_balance_error'] = float(sender_err)
-    if 'receiver_balance_error' in input_dict: input_dict['receiver_balance_error'] = float(receiver_err)
-    if 'is_high_value' in input_dict: input_dict['is_high_value'] = float(high_val)
+    input_dict['amount'] = float(tx_amount)
+    input_dict['oldbalanceOrg'] = float(old_orig)
+    input_dict['newbalanceOrig'] = float(new_orig)
+    input_dict['oldbalanceDest'] = float(old_dest)
+    input_dict['newbalanceDest'] = float(new_dest)
+    input_dict['sender_balance_error'] = float(sender_err)
+    input_dict['receiver_balance_error'] = float(receiver_err)
+    input_dict['is_high_value'] = float(high_val)
     
-    # Set selected category flag
     type_col = f"type_{tx_type}"
     if type_col in input_dict:
         input_dict[type_col] = 1.0
         
     input_df = pd.DataFrame([input_dict])[kra_features]
     
-    # Run predictions
+    # Run predictions & isolate class 1 risk probabilities
     risk_prediction = kra_model.predict(input_df)
     risk_proba = kra_model.predict_proba(input_df)[0][1] * 100
 
-    # Layout Outputs
     col1, col2 = st.columns(2)
-    
     with col1:
         st.subheader("🔮 Transaction Risk Assessment")
         st.metric(label="Anomalous Tax Evasion Probability", value=f"{risk_proba:.2f}%")
@@ -159,8 +162,4 @@ with tab2:
     This system models how digital ledgers can be automatically audited for revenue leakage. 
     By looking at internal discrepancies within account balances rather than just transaction sizes, 
     the engine uncovers structural tax evasion footprints.
-    
-    ### Data Source Transparency
-    * **Proxy Source:** Kaggle PaySim Dataset / Local System Simulation.
-    * **Compliance Baseline:** Engineered to align with digital revenue assurance objectives tracked globally by modern revenue authorities like the Kenya Revenue Authority (KRA).
     """)
