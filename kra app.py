@@ -1,5 +1,4 @@
 import streamlit as st
-pip install scikit-learn
 import pandas as pd
 import numpy as np
 from sklearn.ensemble import RandomForestClassifier
