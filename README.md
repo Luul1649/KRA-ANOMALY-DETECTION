@@ -1,15 +1,32 @@
-# KRA-ANOMALY-DETECTION
-##Step 1: Setting up the Base Environment: 
-We imported standard numerical libraries (pandas, numpy), data visualization tools (matplotlib, seaborn), and machine learning modules from scikit-learn.Why it matters: Real-world financial audit logs contain millions of data points. We need optimized, production-ready modules capable of processing math equations and rendering data charts at high speed.
+# 🏦 Financial Ledger Anomaly Detection: A Framework for Revenue Assurance (KRA Proxy)
 
-##Step 2: Ingesting the Transaction Ledger Data: 
-We loaded a 500,000-row subset of the Kaggle PaySim dataset, which contains mobile money data records.Why it matters: Since the Kenya Revenue Authority (KRA) holds highly confidential tax filings, we used PaySim as a high-quality "proxy." PaySim mirrors the exact structures of financial systems like M-Pesa (e.g., transfers, merchants, account balances). Loading a subset allows us to develop the model architecture quickly without burning out your computer's RAM.
+An end-to-end Machine Learning and risk profiling console built to demonstrate how digital financial ledgers can be automatically audited for revenue leakage. Using a high-fidelity **Kaggle Mobile Money Dataset** as a financial proxy, this application represents a **Proof of Concept (PoC)** designed to align with the automated audit selection and compliance tracking objectives of modern revenue bodies like the **Kenya Revenue Authority (KRA)**.
 
-##Step 3: Anomaly & Tax Feature Engineering
-This is the most critical step. We transformed basic, raw ledger columns into specific "risk factors" that tax auditors look for:One-Hot Encoding (get_dummies): AI cannot read text words like "TRANSFER" or "CASH_OUT". This function converts payment types into mathematical columns of 1s and 0s.Balance Discrepancy Errors (sender_balance_error): In a clean transaction, if you send KES 10,000, your balance drops by exactly KES 10,000. If it doesn't, a balance anomaly exists. This feature flags hidden account manipulation or unregistered funds.High-Value Transaction Flags (is_high_value): We set a rule flagging transactions over KES 150,000. Tax authorities pay extra attention to high-value transactions because they often mask commercial trade under the guise of "personal peer-to-peer transfers" to evade corporate income tax.
+## 📊 Project Performance & Architecture
+* **Source Dataset:** Kaggle PaySim Synthetic Mobile Money Transaction Logs
+* **Algorithm:** Random Forest Classifier (Ensemble Decision Trees)
+* **Interface Deployment:** Streamlit Community Cloud
+* **Key Features:** Balance Discrepancy Errors (`sender_balance_error`, `receiver_balance_error`), Channel One-Hot Coding, and High-Value Transaction Isolation.
 
-##Step 4: Training the KRA Anomaly DetectorWhat we did: 
-We split the data into an 80% training set and a 20% testing set using stratify=y_kra. Then we trained a Random Forest Classifier model.Why it matters: Financial fraud and tax evasion are rare events (e.g., only 1 out of 1,000 transactions might be illicit). This is known as imbalanced data. Using stratify ensures that both our training and testing sets get an equal percentage of anomalies. We used a Random Forest algorithm because it builds dozens of mini decision trees to cross-examine financial variables, making it highly accurate at spotting complex tax-dodging networks.
+## ⚙️ Core Engineering Pipeline
+1. **Dynamic Schema Mapping:** Built a normalization layer using `.str.lower()` and `.str.strip()` to dynamically parse incoming data streams, correcting case mismatches or hidden trailing spaces in the ledger.
+2. **Tax Feature Engineering:** Created internal ledger accounting discrepancy metrics. In a valid transfer, account changes must match the transfer value perfectly; deviations are engineered as feature inputs to train the AI on anomalies.
+3. **Data Imbalance Safeguards:** Handled highly imbalanced financial fraud classes by isolating minority outliers without generating false positives on standard personal peer-to-peer usage profiles.
+4. **Structural Fail-Safe:** Integrated a programmatic data generation fallback layer. If the primary CSV stream fails to load or corrupts, the pipeline generates valid structural matrices on the fly to guarantee 100% app uptime.
 
-##Step 5: Evaluating the Auditing ModelWhat we did: 
-We generated a Classification Report and a Confusion Matrix Heatmap.Why it matters: KRA executives do not care about raw code; they care about operational efficiency.The Classification Report proves how accurately the AI catches tax evaders (Recall) without falsely accusing innocent, compliant citizens (Precision).The Confusion Matrix provides a clean visual tally of your system's accurate hits versus missed targets.
+## 🚀 Deployment & Local Replication
+
+### 1. Requirements (`requirements.txt`)
+```text
+streamlit
+pandas
+numpy
+scikit-learn
+matplotlib
+seaborn
+```
+
+### 2. Execution
+```bash
+streamlit run app.py
+```
