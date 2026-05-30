@@ -4,4 +4,4 @@ matplotlib
 seaborn 
 scikit-learn
 sklearn.ensemble
-random forest classifier
+RandomForestClassifier
